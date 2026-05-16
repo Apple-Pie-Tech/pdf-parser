@@ -20,4 +20,28 @@ pip install -e .
 pdf-parser input.pdf
 pdf-parser input.pdf --text output.txt
 pdf-parser input.pdf --text output.txt --json output.docling.json
+
+txt-chunker output.txt --json chunks.json
 ```
+
+## Chunking text into JSON
+
+The `txt-chunker` command reads a plain-text file and writes semantic chunks as JSON.
+
+```bash
+txt-chunker output.txt --json chunks.json
+```
+
+It uses Chonkie semantic chunking with Azure OpenAI embeddings. Configuration is read from
+environment variables:
+
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_API_VERSION` (optional, default: `2024-02-01`)
+- `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`
+- `EMBEDDING_MODEL` (optional, default: `text-embedding-3-large`)
+- `EMBEDDING_DIM` (optional)
+- `SEMANTIC_SIMILARITY_THRESHOLD` (optional, default: `0.8`)
+- `CHUNK_OVERLAP_SENTENCES` (optional, default: `1`)
+- `MIN_CHUNK_CHARS` (optional, default: `350`)
+- `MAX_CHUNK_CHARS` (optional, default: `1400`)
