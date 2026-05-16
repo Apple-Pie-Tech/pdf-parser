@@ -58,6 +58,37 @@ def test_parse_pdf_writes_text_and_json(tmp_path: Path, monkeypatch: pytest.Monk
     }
 
 
+def test_parse_pdf_normalizes_large_inline_whitespace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    class SpacingDocument:
+        def export_to_text(self) -> str:
+            return (
+                "WHEN\tI\tWAS at\t Los\tAlamos\n"
+                "\n"
+                "One time\tI\twent\tto\tvisit\ther.\n"
+            )
+
+        def export_to_dict(self) -> dict:
+            return {"body": ["ignored for this test"]}
+
+    class SpacingResult:
+        document = SpacingDocument()
+
+    class SpacingConverter:
+        def convert(self, source: Path) -> SpacingResult:
+            return SpacingResult()
+
+    input_pdf = tmp_path / "sample.pdf"
+    input_pdf.write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.setattr(parser, "_build_converter", lambda: SpacingConverter())
+
+    text = parser.parse_pdf(input_pdf)
+
+    assert text == "WHEN I WAS at Los Alamos\n\nOne time I went to visit her.\n"
+
+
 def test_parse_pdf_raises_for_missing_input(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         parser.parse_pdf(tmp_path / "missing.pdf")

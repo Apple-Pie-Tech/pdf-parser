@@ -2,12 +2,34 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 from pathlib import Path
 
 
 def _build_converter():
     module = importlib.import_module("docling.document_converter")
     return module.DocumentConverter()
+
+
+def _normalize_text(text: str) -> str:
+    normalized_lines: list[str] = []
+    blank_line_count = 0
+
+    for raw_line in text.splitlines():
+        collapsed_line = re.sub(r"[\t ]+", " ", raw_line).strip()
+        if collapsed_line:
+            blank_line_count = 0
+            normalized_lines.append(collapsed_line)
+            continue
+
+        if blank_line_count == 0:
+            normalized_lines.append("")
+        blank_line_count += 1
+
+    normalized_text = "\n".join(normalized_lines).strip()
+    if text.endswith("\n") and normalized_text:
+        return f"{normalized_text}\n"
+    return normalized_text
 
 
 def parse_pdf(
@@ -24,7 +46,7 @@ def parse_pdf(
     result = converter.convert(source)
     document = result.document
 
-    text = document.export_to_text()
+    text = _normalize_text(document.export_to_text())
 
     if text_path is not None:
         destination = Path(text_path)
