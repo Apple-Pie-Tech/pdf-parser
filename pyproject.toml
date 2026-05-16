@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-parser"
+version = "0.1.0"
+description = "Simple PDF-to-text parser using Docling"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "docling>=2.93.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+pdf-parser = "pdf_parser.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
