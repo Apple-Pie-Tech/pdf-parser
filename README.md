@@ -45,3 +45,14 @@ environment variables:
 - `CHUNK_OVERLAP_SENTENCES` (optional, default: `1`)
 - `MIN_CHUNK_CHARS` (optional, default: `350`)
 - `MAX_CHUNK_CHARS` (optional, default: `1400`)
+
+## Loading chunks into Qdrant
+
+The `qdrant-loader` command can wipe the configured collection and reload chunk JSON.
+
+```bash
+qdrant-loader wipe --confirm-collection apple_pie_story_chunks
+qdrant-loader load feynman-azure-chunks.json --batch-size 64
+```
+
+It reads Qdrant settings from `.env`. If Azure OpenAI settings are not present, the loader falls back to deterministic mock embeddings so the chunk data can still be loaded.

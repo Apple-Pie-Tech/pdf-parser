@@ -11,6 +11,9 @@ requires-python = ">=3.10"
 dependencies = [
   "chonkie[semantic,azure-openai]",
   "docling>=2.93.0",
+  "openai>=1.0.0",
+  "pydantic-settings>=2.0.0",
+  "qdrant-client>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -21,6 +24,7 @@ dev = [
 [project.scripts]
 pdf-parser = "pdf_parser.cli:main"
 txt-chunker = "pdf_parser.chunker_cli:main"
+qdrant-loader = "pdf_parser.qdrant_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
