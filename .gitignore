@@ -10,3 +10,9 @@ build/
 *.egg-info/
 .idea
 .env
+
+# Derived/copyrighted sample data (kept on disk locally, not tracked; see E29)
+/feynman.pdf
+/feynman.json
+/feynman.txt
+/feynman-azure-chunks.json
