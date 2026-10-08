@@ -164,10 +164,13 @@ def test_qdrant_cloud_api_key_is_passed_to_client(monkeypatch: pytest.MonkeyPatc
 async def test_deterministic_ids_and_payload_shape_for_upserted_chunks() -> None:
     fake_client = FakeQdrantClient(collection_exists_result=False)
     store = QdrantVectorStore(make_settings(), client=fake_client)
+    timestamp = datetime(2024, 1, 1, tzinfo=UTC)
 
     upserted = await store.upsert_chunks(
         input_id="feynman.txt",
         document_source="feynman.txt",
+        user_id="pdf-parser",
+        timestamp=timestamp,
         chunks=make_chunks(),
         embeddings=[
             [0.1, 0.2, 0.3, 0.4],
@@ -184,15 +187,19 @@ async def test_deterministic_ids_and_payload_shape_for_upserted_chunks() -> None
     assert vectors_config.size == 4
     assert vectors_config.distance == Distance.COSINE
 
+    # IDs are namespaced with a "pdf:" prefix so they can never collide with
+    # data-ingestion's `uuid5(NAMESPACE_URL, f"{input_id}:{chunk_index}")` scheme.
     assert [UUID(str(point.id)) for point in fake_client.upserted_points] == [
-        uuid5(NAMESPACE_URL, "feynman.txt:0"),
-        uuid5(NAMESPACE_URL, "feynman.txt:1"),
+        uuid5(NAMESPACE_URL, "pdf:feynman.txt:0"),
+        uuid5(NAMESPACE_URL, "pdf:feynman.txt:1"),
     ]
 
     first_payload = fake_client.upserted_points[0].payload
     assert first_payload == {
         "input_id": "feynman.txt",
         "document_source": "feynman.txt",
+        "user_id": "pdf-parser",
+        "timestamp": "2024-01-01T00:00:00+00:00",
         "chunk_index": 0,
         "text": "We peeled the apples and dusted them with cinnamon.",
         "source": "text",
@@ -206,6 +213,31 @@ async def test_deterministic_ids_and_payload_shape_for_upserted_chunks() -> None
 
 
 @pytest.mark.asyncio
+async def test_point_ids_never_collide_with_data_ingestion_scheme() -> None:
+    """data-ingestion derives point IDs as uuid5(NAMESPACE_URL, f"{input_id}:{chunk_index}").
+    pdf-parser must never produce the same ID for a matching input_id/chunk_index,
+    or the two services silently overwrite each other's points in the shared collection.
+    """
+    fake_client = FakeQdrantClient(collection_exists_result=False)
+    store = QdrantVectorStore(make_settings(), client=fake_client)
+
+    await store.upsert_chunks(
+        input_id="shared-input-id",
+        document_source="shared-input-id",
+        user_id="pdf-parser",
+        timestamp=datetime(2024, 1, 1, tzinfo=UTC),
+        chunks=make_chunks()[:1],
+        embeddings=[[0.1, 0.2, 0.3, 0.4]],
+        source="text",
+        embedding_model="text-embedding-3-large",
+    )
+
+    data_ingestion_id = uuid5(NAMESPACE_URL, "shared-input-id:0")
+    pdf_parser_id = UUID(str(fake_client.upserted_points[0].id))
+    assert pdf_parser_id != data_ingestion_id
+
+
+@pytest.mark.asyncio
 async def test_wrong_dimension_existing_collection_raises_configuration_error() -> None:
     fake_client = FakeQdrantClient(collection_exists_result=True, collection_size=3)
     store = QdrantVectorStore(make_settings(embedding_dim=4), client=fake_client)
@@ -214,6 +246,8 @@ async def test_wrong_dimension_existing_collection_raises_configuration_error() 
         await store.upsert_chunks(
             input_id="feynman.txt",
             document_source="feynman.txt",
+            user_id="pdf-parser",
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
             chunks=make_chunks()[:1],
             embeddings=[[0.1, 0.2, 0.3, 0.4]],
             source="text",

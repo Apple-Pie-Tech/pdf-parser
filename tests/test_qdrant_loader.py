@@ -122,6 +122,67 @@ async def test_loader_batches_embeddings_and_upserts():
     assert fake_embeddings.calls == [["one", "two"], ["three"]]
     assert [len(cast(list[object], call["chunks"])) for call in fake_vector_store.calls] == [2, 1]
 
+    # Every batch is attributed to the same ingestion run: the configured
+    # default_user_id (no --user-id override) and one shared timestamp.
+    assert all(call["user_id"] == "pdf-parser" for call in fake_vector_store.calls)
+    timestamps = {call["timestamp"] for call in fake_vector_store.calls}
+    assert len(timestamps) == 1
+
+
+@pytest.mark.asyncio
+async def test_loader_uses_explicit_user_id_override():
+    document = loader.ChunkDocument(
+        source="feynman.txt",
+        chunk_count=1,
+        chunks=[
+            loader.Chunk(text="one", chunk_index=0, metadata={"similarity_threshold": 0.8, "overlap_sentences": 1}),
+        ],
+    )
+
+    class FakeEmbeddings:
+        model_name = "embedding-deployment"
+
+        async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+            return [[1.0] * 4 for _ in texts]
+
+        async def aclose(self) -> None:
+            return None
+
+    class FakeVectorStore:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        async def upsert_chunks(self, **kwargs: object) -> int:
+            self.calls.append(kwargs)
+            return len(cast(list[object], kwargs["chunks"]))
+
+        async def aclose(self) -> None:
+            return None
+
+        async def wipe_collection(self, *, confirm_collection: str) -> None:
+            raise AssertionError("unexpected wipe")
+
+    fake_vector_store = FakeVectorStore()
+    qdrant_loader = loader.QdrantChunkLoader(
+        settings=loader.Settings(
+            qdrant_url="http://qdrant:6333",
+            qdrant_api_key="secret",
+            qdrant_collection="apple_pie_story_chunks",
+            azure_openai_endpoint="https://example.openai.azure.com",
+            azure_openai_api_key="secret-key",
+            azure_openai_api_version="2024-10-21",
+            azure_openai_embeddings_deployment="embeddings-deployment",
+            embedding_model="text-embedding-3-large",
+            embedding_dim=4,
+        ),
+        embeddings=FakeEmbeddings(),
+        vector_store=fake_vector_store,
+    )
+
+    await qdrant_loader.load_document(document, user_id="researcher-42")
+
+    assert fake_vector_store.calls[0]["user_id"] == "researcher-42"
+
 
 @pytest.mark.asyncio
 async def test_loader_rejects_chunk_count_mismatch():

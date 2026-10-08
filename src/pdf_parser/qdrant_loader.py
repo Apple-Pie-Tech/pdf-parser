@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from itertools import islice
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -13,10 +14,6 @@ from pdf_parser.vector_store import QdrantVectorStore
 
 
 class QdrantLoaderError(RuntimeError):
-    pass
-
-
-class QdrantLoaderConfigurationError(QdrantLoaderError):
     pass
 
 
@@ -63,20 +60,32 @@ class QdrantChunkLoader:
         vector_store = self._get_vector_store()
         await vector_store.wipe_collection(confirm_collection=confirm_collection)
 
-    async def load_file(self, json_path: Path, *, batch_size: int = 64) -> QdrantLoadResult:
+    async def load_file(
+        self,
+        json_path: Path,
+        *,
+        batch_size: int = 64,
+        user_id: str | None = None,
+    ) -> QdrantLoadResult:
         document = load_chunk_document(json_path)
-        return await self.load_document(document, batch_size=batch_size)
+        return await self.load_document(document, batch_size=batch_size, user_id=user_id)
 
     async def load_document(
         self,
         document: ChunkDocument,
         *,
         batch_size: int = 64,
+        user_id: str | None = None,
     ) -> QdrantLoadResult:
         if document.chunk_count != len(document.chunks):
             raise QdrantLoaderError(
                 f"chunk_count mismatch: expected {document.chunk_count}, got {len(document.chunks)}"
             )
+
+        resolved_user_id = user_id or self._settings.default_user_id
+        # One timestamp for the whole document load, so every chunk from this
+        # run is attributed to the same ingestion event regardless of batching.
+        timestamp = datetime.now(UTC)
 
         total_chunks = 0
         embeddings = self._get_embeddings()
@@ -86,6 +95,8 @@ class QdrantChunkLoader:
             total_chunks += await vector_store.upsert_chunks(
                 input_id=document.source,
                 document_source=document.source,
+                user_id=resolved_user_id,
+                timestamp=timestamp,
                 chunks=list(chunk_batch),
                 embeddings=batch_embeddings,
                 source="text",

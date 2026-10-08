@@ -95,10 +95,6 @@ class EmbeddingClient:
     def model_name(self) -> str:
         return self._config.model_name
 
-    @property
-    def dimension(self) -> int:
-        return self._config.dimension
-
     async def aclose(self) -> None:
         if self._client is None:
             return
@@ -150,10 +146,6 @@ class DeterministicEmbeddingClient:
     @property
     def model_name(self) -> str:
         return self._model_name
-
-    @property
-    def dimension(self) -> int:
-        return self._dimension
 
     async def aclose(self) -> None:
         return None

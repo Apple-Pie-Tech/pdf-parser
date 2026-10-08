@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from importlib import import_module
 from typing import Any, Literal, Protocol, cast, runtime_checkable
 
@@ -119,6 +120,8 @@ class QdrantVectorStore:
         *,
         input_id: str,
         document_source: str,
+        user_id: str,
+        timestamp: datetime,
         chunks: list[Chunk],
         embeddings: list[list[float]],
         source: Literal["text", "audio"],
@@ -134,6 +137,8 @@ class QdrantVectorStore:
         points = self._build_points(
             input_id=input_id,
             document_source=document_source,
+            user_id=user_id,
+            timestamp=timestamp,
             chunks=chunks,
             embeddings=embeddings,
             source=source,
@@ -181,6 +186,8 @@ class QdrantVectorStore:
         *,
         input_id: str,
         document_source: str,
+        user_id: str,
+        timestamp: datetime,
         chunks: list[Chunk],
         embeddings: list[list[float]],
         source: Literal["text", "audio"],
@@ -198,11 +205,18 @@ class QdrantVectorStore:
 
             points.append(
                 qdrant_models.PointStruct(
-                    id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{input_id}:{chunk.chunk_index}")),
+                    # Prefixed with "pdf:" so pdf-parser's IDs can never collide with
+                    # data-ingestion's uuid5(NAMESPACE_URL, f"{input_id}:{chunk_index}")
+                    # scheme in the shared apple_pie_story_chunks collection.
+                    id=str(
+                        uuid.uuid5(uuid.NAMESPACE_URL, f"pdf:{input_id}:{chunk.chunk_index}")
+                    ),
                     vector=embedding,
                     payload={
                         "input_id": input_id,
                         "document_source": document_source,
+                        "user_id": user_id,
+                        "timestamp": timestamp.isoformat(),
                         "chunk_index": chunk.chunk_index,
                         "text": chunk.text,
                         "source": source,

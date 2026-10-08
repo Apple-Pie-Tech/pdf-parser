@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict, dataclass
 from importlib import import_module
 from pathlib import Path
+
+from pdf_parser.config import Settings
 
 
 class SemanticChunkingError(RuntimeError):
@@ -40,16 +41,14 @@ class ChunkerSettings:
 
     @classmethod
     def from_env(cls) -> ChunkerSettings:
-        raw_dimension = os.getenv("EMBEDDING_DIM")
+        settings = Settings()
         return cls(
-            azure_openai_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            azure_openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            azure_openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"),
-            azure_openai_embeddings_deployment=os.getenv(
-                "AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"
-            ),
-            embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-large"),
-            embedding_dim=int(raw_dimension) if raw_dimension else None,
+            azure_openai_endpoint=settings.azure_openai_endpoint,
+            azure_openai_api_key=settings.azure_openai_api_key,
+            azure_openai_api_version=settings.azure_openai_api_version,
+            azure_openai_embeddings_deployment=settings.azure_openai_embeddings_deployment,
+            embedding_model=settings.embedding_model,
+            embedding_dim=settings.embedding_dim,
         )
 
 
@@ -62,11 +61,12 @@ class _SemanticChunkingConfig:
 
     @classmethod
     def from_env(cls) -> _SemanticChunkingConfig:
+        settings = Settings()
         return cls(
-            similarity_threshold=float(os.getenv("SEMANTIC_SIMILARITY_THRESHOLD", "0.8")),
-            similarity_window=int(os.getenv("CHUNK_OVERLAP_SENTENCES", "1")),
-            min_chunk_chars=int(os.getenv("MIN_CHUNK_CHARS", "350")),
-            max_chunk_chars=int(os.getenv("MAX_CHUNK_CHARS", "1400")),
+            similarity_threshold=settings.semantic_similarity_threshold,
+            similarity_window=settings.chunk_overlap_sentences,
+            min_chunk_chars=settings.min_chunk_chars,
+            max_chunk_chars=settings.max_chunk_chars,
         )
 
 

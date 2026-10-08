@@ -23,6 +23,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=64,
         help="Number of chunks to embed and upsert at a time",
     )
+    load_parser.add_argument(
+        "--user-id",
+        default=None,
+        help=(
+            "User ID to attribute these chunks to. Defaults to the configured "
+            "default_user_id (e.g. 'pdf-parser') for document-sourced ingests."
+        ),
+    )
 
     wipe_parser = subparsers.add_parser("wipe", help="Delete the configured collection")
     wipe_parser.add_argument(
@@ -38,7 +46,9 @@ async def _run(args: argparse.Namespace) -> int:
     loader = QdrantChunkLoader()
     try:
         if args.command == "load":
-            result = await loader.load_file(args.json_path, batch_size=args.batch_size)
+            result = await loader.load_file(
+                args.json_path, batch_size=args.batch_size, user_id=args.user_id
+            )
             print(f"loaded {result.chunks} chunks into {loader.collection_name}")
             return 0
 

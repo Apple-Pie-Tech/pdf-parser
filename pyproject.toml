@@ -7,7 +7,7 @@ name = "pdf-parser"
 version = "0.1.0"
 description = "Simple PDF-to-text parser using Docling"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.13"
 dependencies = [
   "chonkie[semantic,azure-openai]",
   "docling>=2.93.0",
@@ -16,9 +16,10 @@ dependencies = [
   "qdrant-client>=1.0.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest>=8.0.0",
+  "pytest-asyncio>=0.24.0",
 ]
 
 [project.scripts]
@@ -32,3 +33,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+asyncio_mode = "auto"

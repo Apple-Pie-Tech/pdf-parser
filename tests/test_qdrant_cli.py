@@ -49,8 +49,8 @@ def test_cli_loads_json(monkeypatch, tmp_path: Path):
             recorded["constructed"] = True
             self.collection_name = "apple_pie_story_chunks"
 
-        async def load_file(self, json_path: Path, *, batch_size: int):
-            recorded["load_file"] = (json_path, batch_size)
+        async def load_file(self, json_path: Path, *, batch_size: int, user_id: str | None = None):
+            recorded["load_file"] = (json_path, batch_size, user_id)
             return SimpleNamespace(chunks=0)
 
         async def wipe(self, *, confirm_collection: str):
@@ -64,8 +64,39 @@ def test_cli_loads_json(monkeypatch, tmp_path: Path):
     exit_code = cli.main(["load", str(json_path), "--batch-size", "3"])
 
     assert exit_code == 0
-    assert recorded["load_file"] == (json_path, 3)
+    assert recorded["load_file"] == (json_path, 3, None)
     assert recorded["closed"] is True
+
+
+def test_cli_loads_json_with_explicit_user_id(monkeypatch, tmp_path: Path):
+    json_path = tmp_path / "chunks.json"
+    json_path.write_text(
+        '{"source":"feynman.txt","chunk_count":0,"chunks":[]}',
+        encoding="utf-8",
+    )
+
+    recorded: dict[str, object] = {}
+
+    class FakeLoader:
+        def __init__(self) -> None:
+            self.collection_name = "apple_pie_story_chunks"
+
+        async def load_file(self, json_path: Path, *, batch_size: int, user_id: str | None = None):
+            recorded["load_file"] = (json_path, batch_size, user_id)
+            return SimpleNamespace(chunks=0)
+
+        async def wipe(self, *, confirm_collection: str):
+            raise AssertionError("unexpected wipe")
+
+        async def aclose(self) -> None:
+            recorded["closed"] = True
+
+    monkeypatch.setattr(cli, "QdrantChunkLoader", FakeLoader)
+
+    exit_code = cli.main(["load", str(json_path), "--user-id", "researcher-42"])
+
+    assert exit_code == 0
+    assert recorded["load_file"] == (json_path, 64, "researcher-42")
 
 
 def test_cli_rejects_wipe_without_confirmation(monkeypatch):

@@ -83,6 +83,58 @@ def test_chunker_settings_reads_environment(monkeypatch: pytest.MonkeyPatch):
     assert settings.embedding_dim == 1536
 
 
+def test_chunker_settings_from_env_sources_via_config_settings(monkeypatch: pytest.MonkeyPatch):
+    """ChunkerSettings.from_env must build on pdf_parser.config.Settings, the same
+    configuration source qdrant-loader uses, instead of reading os.environ directly."""
+
+    class FakeSettings:
+        def __init__(self) -> None:
+            self.azure_openai_endpoint = "https://fake.openai.azure.com"
+            self.azure_openai_api_key = "fake-key"
+            self.azure_openai_api_version = "2099-01-01"
+            self.azure_openai_embeddings_deployment = "fake-deployment"
+            self.embedding_model = "fake-model"
+            self.embedding_dim = 99
+
+    monkeypatch.setattr(chunker, "Settings", FakeSettings)
+
+    settings = chunker.ChunkerSettings.from_env()
+
+    assert settings == chunker.ChunkerSettings(
+        azure_openai_endpoint="https://fake.openai.azure.com",
+        azure_openai_api_key="fake-key",
+        azure_openai_api_version="2099-01-01",
+        azure_openai_embeddings_deployment="fake-deployment",
+        embedding_model="fake-model",
+        embedding_dim=99,
+    )
+
+
+def test_semantic_chunking_config_from_env_sources_via_config_settings(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """SEMANTIC_SIMILARITY_THRESHOLD / CHUNK_OVERLAP_SENTENCES / MIN_CHUNK_CHARS /
+    MAX_CHUNK_CHARS must be real Settings fields, not bare os.getenv reads."""
+
+    class FakeSettings:
+        def __init__(self) -> None:
+            self.semantic_similarity_threshold = 0.55
+            self.chunk_overlap_sentences = 4
+            self.min_chunk_chars = 111
+            self.max_chunk_chars = 999
+
+    monkeypatch.setattr(chunker, "Settings", FakeSettings)
+
+    config = chunker._SemanticChunkingConfig.from_env()
+
+    assert config == chunker._SemanticChunkingConfig(
+        similarity_threshold=0.55,
+        similarity_window=4,
+        min_chunk_chars=111,
+        max_chunk_chars=999,
+    )
+
+
 def test_semantic_chunker_adapter_merges_short_chunks(monkeypatch: pytest.MonkeyPatch):
     recorded: dict[str, object] = {}
 
