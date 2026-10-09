@@ -1,0 +1,44 @@
+name: CI
+
+# pdf-parser is a library and CLI, not a deployed service: there is no Lambda,
+# no image and no ECR repository behind it, so this workflow verifies the suite
+# and stops there. It needs no AWS credentials, which is why this repository is
+# deliberately absent from the github_repositories map in
+# infrastructure/aws/environments/prod.tfvars -- no OIDC trust subject exists
+# for it, and none is needed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          # The dependency closure here is large -- docling pulls torch and the
+          # CUDA wheels -- so a cold install is minutes. Caching keyed on
+          # uv.lock makes every run after the first one cheap.
+          enable-cache: true
+
+      - name: Run the test suite
+        # --frozen: install exactly what uv.lock pins and fail rather than
+        # resolve. uv provisions the interpreter requires-python asks for, so
+        # there is no setup-python step.
+        run: uv run --frozen pytest
